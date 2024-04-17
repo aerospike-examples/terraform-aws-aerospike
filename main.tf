@@ -7,8 +7,12 @@ terraform {
       version = "~> 5.0"
     }
     random = {
-      source = "hashicorp/random"
-      version = "3.6.0"
+      source  = "hashicorp/random"
+      version = "~> 3.6"
+    }
+    cloudinit = {
+      source  = "hashicorp/cloudinit"
+      version = "~> 2.3"
     }
   }
 }
@@ -90,7 +94,7 @@ resource "aws_instance" "aerospike_instance" {
   ]
   
   subnet_id              = aws_subnet.data_subnet[each.value[var.aerospike_zone_name_tag]].id
-  #user_data             = length(var.cloud_config) > 0 ? data.cloudinit_config.user_data[count.index].rendered : null
+  user_data              = data.cloudinit_config.user_data[each.key].rendered
   source_dest_check      = false
   #iam_instance_profile  = var.iam_instance_profile_name
 
@@ -107,6 +111,27 @@ resource "aws_instance" "aerospike_instance" {
 
   tags = merge(var.aerospike_instance_tags, each.value)
 }
+
+# --- Cloud Init --------------------------------------------------------------
+
+data "cloudinit_config" "user_data" {
+  for_each = {for index, tag in local.per_instance_tags: tag[var.aerospike_node_id_tag] => tag}
+
+  gzip          = true
+  base64_encode = true
+
+  part {
+    content_type = "text/cloud-config"
+    filename     = "hostname.yml"
+    content      = templatefile(
+      "${path.module}/cloud-configs/hostname.tpl",
+      {
+        fqdn = "${each.key}.${var.aerospike_private_dns_tld}"
+      }
+    )
+  }
+}
+
 
 # --- VPC ---------------------------------------------------------------------
 
