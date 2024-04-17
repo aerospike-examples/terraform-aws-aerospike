@@ -52,7 +52,7 @@ resource "aws_route53_record" "seed_dns" {
   zone_id = aws_route53_zone.aerospike_private_dns.zone_id
   name    = "seed.${var.aerospike_private_dns_tld}"
   type    = "A"
-  ttl     = 300
+  ttl     = var.aerospike_private_dns_ttl
   records = slice([for instance in values(aws_instance.aerospike_instance): instance.private_ip], 0, length(var.availability_zones))
 }
 
@@ -61,7 +61,7 @@ resource "aws_route53_record" "node_dns" {
   zone_id = aws_route53_zone.aerospike_private_dns.zone_id
   name    = "${each.value}.${var.aerospike_private_dns_tld}"
   type    = "A"
-  ttl     = 300
+  ttl     = var.aerospike_private_dns_ttl
   records = [aws_instance.aerospike_instance[each.value].private_ip]
 }
 
@@ -124,7 +124,7 @@ data "cloudinit_config" "user_data" {
     content_type = "text/cloud-config"
     filename     = "hostname.yml"
     content      = templatefile(
-      "${path.module}/cloud-configs/hostname.tpl",
+      "${path.module}/cloudinit-configs/hostname.tpl",
       {
         fqdn = "${each.key}.${var.aerospike_private_dns_tld}"
       }

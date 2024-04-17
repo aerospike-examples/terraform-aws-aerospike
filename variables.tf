@@ -8,6 +8,12 @@ variable "aerospike_private_dns_tld" {
   default     = "aerospike.internal"
 }
 
+variable "aerospike_private_dns_ttl" {
+  description = "TTL used for private DNS records"
+  type        = number
+  default     = 300
+}
+
 
 # --- Aerospike cluster --------------------------------------------------------
 
