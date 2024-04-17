@@ -33,6 +33,35 @@ locals {
   ]
 }
 
+# --- Route53 DNS -------------------------------------------------------------
+
+resource "aws_route53_zone" "aerospike_private_dns" {
+  name = var.aerospike_private_dns_tld
+
+  vpc {
+    vpc_id = aws_vpc.aerospike_vpc.id
+  }
+}
+
+resource "aws_route53_record" "seed_dns" {
+  # first IP per availability zone
+  zone_id = aws_route53_zone.aerospike_private_dns.zone_id
+  name    = "seed.${var.aerospike_private_dns_tld}"
+  type    = "A"
+  ttl     = 300
+  records = slice([for instance in values(aws_instance.aerospike_instance): instance.private_ip], 0, length(var.availability_zones))
+}
+
+resource "aws_route53_record" "node_dns" {
+  for_each = toset(slice([for node_id in keys(aws_instance.aerospike_instance): node_id], 0, length(var.availability_zones)))
+  zone_id = aws_route53_zone.aerospike_private_dns.zone_id
+  name    = "${each.value}.${var.aerospike_private_dns_tld}"
+  type    = "A"
+  ttl     = 300
+  records = [aws_instance.aerospike_instance[each.value].private_ip]
+}
+
+
 # --- Aerospike AMI -----------------------------------------------------------
 
 data "aws_ami" "aerospike_ami" {
@@ -60,10 +89,10 @@ resource "aws_instance" "aerospike_instance" {
     aws_security_group.vpc_internal.id
   ]
   
-  subnet_id                   = aws_subnet.data_subnet[each.value[var.aerospike_zone_name_tag]].id
-  #user_data                   = length(var.cloud_config) > 0 ? data.cloudinit_config.user_data[count.index].rendered : null
-  source_dest_check           = false
-  #iam_instance_profile        = var.iam_instance_profile_name
+  subnet_id              = aws_subnet.data_subnet[each.value[var.aerospike_zone_name_tag]].id
+  #user_data             = length(var.cloud_config) > 0 ? data.cloudinit_config.user_data[count.index].rendered : null
+  source_dest_check      = false
+  #iam_instance_profile  = var.iam_instance_profile_name
 
   metadata_options {
     instance_metadata_tags = "enabled"

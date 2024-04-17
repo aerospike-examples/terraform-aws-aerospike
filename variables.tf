@@ -1,5 +1,14 @@
 # Input variable definitions
 
+# --- Route53 DNS -------------------------------------------------------------
+
+variable "aerospike_private_dns_tld" {
+  description = "Top-level domain name for the private hosted zone"
+  type        = string
+  default     = "aerospike.internal"
+}
+
+
 # --- Aerospike cluster --------------------------------------------------------
 
 variable "aerospike_cluster_size" {
@@ -99,6 +108,7 @@ variable "aerospike_rolling_amis" {
   default     = {}
 }
 
+
 # --- VPC ----------------------------------------------------------------------
 
 variable "region" {
@@ -143,6 +153,7 @@ variable "vpc_data_subnets" {
   default     = ["10.0.201.0/24", "10.0.202.0/24"]
 }
 
+
 # --- Instance Connect ---------------------------------------------------------
 
 variable "ssh_port" {
@@ -156,6 +167,7 @@ variable "instance_connect_client_cidrs" {
   type        = list(string)
   default     = []
 }
+
 
 # --- Resource tagging ---------------------------------------------------------
 

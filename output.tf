@@ -5,6 +5,14 @@ output "vpc_id" {
   value = aws_vpc.aerospike_vpc.id
 }
 
+output "dns_records" {
+  description = ""
+  value       = merge(
+    {"seed": aws_route53_record.seed_dns.name},
+    {for node_id, record in aws_route53_record.node_dns : node_id => record.name}
+  )
+}
+
 output "amis" {
   description = "Map of AMIs: {node_id: {id: ami_id description: ami_description}, ...}"
   value       = {
