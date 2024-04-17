@@ -31,10 +31,6 @@ output "private_ips" {
   value       = {for node_id, instance in aws_instance.aerospike_instance : node_id => instance.private_ip}
 }
 
-output "user_data" {
-  value = {for node_id, instance in aws_instance.aerospike_instance : node_id => data.cloudinit_config.user_data[node_id].rendered}
-}
-
 output "cli_ssh_commands" {
   description = "Commands to SSH into instances via Instance connect"
   value       = {

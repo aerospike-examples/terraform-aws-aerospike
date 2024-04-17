@@ -26,20 +26,22 @@ locals {
     for i in range(var.aerospike_cluster_size) :
     merge(
       {
-        # Convert i to hex per https://docs.aerospike.com/reference/configuration#node-id and prepend with az identifier:
+        # Convert i to hex and prepend with az identifier
+        # eg. a1 in zone A, b1 in zone B, etc.
         (var.aerospike_node_id_tag) : join("", [substr(element(var.availability_zones, i), -1, 1), format("%x", floor(i / length(aws_subnet.data_subnet)) + 1)]),
         # rack-id is a numeric value per subnet starting at 1
+        # eg. zone A = rack 1, zone B = rack 2, etc.
         (var.aerospike_rack_id_tag) : element(range(1, length(var.vpc_data_subnets) + 1), i),
         (var.aerospike_zone_name_tag) : element(var.availability_zones, i),
       },
       var.aerospike_instance_tags
     )
   ]
-  cloudinit_config_matrix = flatten([
+  cloud_init_configs = flatten([
     for tag in local.per_instance_tags : [
       for file in fileset("${path.module}/cloudinit-configs", "*.tpl") : {
         node_id: tag[var.aerospike_node_id_tag]
-        template_file: file
+        template: file
       }
       
     ]
@@ -103,7 +105,7 @@ resource "aws_instance" "aerospike_instance" {
   ]
   
   subnet_id              = aws_subnet.data_subnet[each.value[var.aerospike_zone_name_tag]].id
-  user_data              = data.cloudinit_config.user_data[each.key].rendered
+  user_data              = data.cloudinit_config.aerospike_cloud_init[each.key].rendered
   source_dest_check      = false
   #iam_instance_profile  = var.iam_instance_profile_name
 
@@ -117,13 +119,19 @@ resource "aws_instance" "aerospike_instance" {
       volume_size = var.aerospike_instance_root_volume_size
     }
   }
-
+  /*
+  lifecycle {
+    replace_triggered_by = [
+      data.cloudinit_config.aerospike_cloud_init.id
+    ]
+  }
+  */
   tags = merge(var.aerospike_instance_tags, each.value)
 }
 
-# --- Cloud Init --------------------------------------------------------------
+# --- cloud-init --------------------------------------------------------------
 
-data "cloudinit_config" "user_data" {
+data "cloudinit_config" "aerospike_cloud_init" {
   for_each = {for index, tag in local.per_instance_tags: tag[var.aerospike_node_id_tag] => tag}
 
   gzip          = true
@@ -131,11 +139,13 @@ data "cloudinit_config" "user_data" {
 
   part {
     content_type = "text/cloud-config"
-    filename     = "hostname.yml"
+    filename     = "aerospike-cloud-init.yml"
     content      = templatefile(
-      "${path.module}/cloudinit-configs/hostname.tpl",
+      "${path.module}/data/aerospike-cloud-init.tpl",
       {
-        node_dns = "${each.key}.${var.aerospike_private_dns_tld}"
+        node_id   = each.key
+        node_host = "${each.key}.${var.aerospike_private_dns_tld}"
+        seed_host = "seed.${var.aerospike_private_dns_tld}"
       }
     )
   }
