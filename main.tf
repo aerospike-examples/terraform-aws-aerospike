@@ -35,6 +35,15 @@ locals {
       var.aerospike_instance_tags
     )
   ]
+  cloudinit_config_matrix = flatten([
+    for tag in local.per_instance_tags : [
+      for file in fileset("${path.module}/cloudinit-configs", "*.tpl") : {
+        node_id: tag[var.aerospike_node_id_tag]
+        template_file: file
+      }
+      
+    ]
+  ])
 }
 
 # --- Route53 DNS -------------------------------------------------------------
@@ -126,7 +135,7 @@ data "cloudinit_config" "user_data" {
     content      = templatefile(
       "${path.module}/cloudinit-configs/hostname.tpl",
       {
-        fqdn = "${each.key}.${var.aerospike_private_dns_tld}"
+        node_dns = "${each.key}.${var.aerospike_private_dns_tld}"
       }
     )
   }
